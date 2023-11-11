@@ -1,0 +1,20 @@
+*** Starting uWSGI 2.0.22 (64bit) on [Tue Nov  7 17:00:36 2023] ***
+compiled with version: 11.4.0 on 22 September 2023 00:33:23
+os: Linux-5.15.0-86-generic #96-Ubuntu SMP Wed Sep 20 08:23:49 UTC 2023
+nodename: VM-8-3-ubuntu
+machine: x86_64
+clock source: unix
+detected number of CPU cores: 4
+current working directory: /etc/nginx/www/back/androidWorkBackend/AndroidBackend
+detected binary path: /usr/local/bin/uwsgi
+!!! no internal routing support, rebuild with pcre support !!!
+uWSGI running as root, you can use --uid/--gid/--chroot options
+*** WARNING: you are running uWSGI as root !!! (use the --uid flag) *** 
+chdir() to /etc/nginx/www/back/androidWorkBackend/
+your processes number limit is 13146
+your memory page size is 4096 bytes
+detected max file descriptor number: 1048576
+lock engine: pthread robust mutexes
+thunder lock: disabled (you can enable it with --thunder-lock)
+probably another instance of uWSGI is running on the same address (:8001).
+bind(): Address already in use [core/socket.c line 769]

@@ -3,6 +3,7 @@ from django.contrib.auth.hashers import make_password
 from django.contrib.auth.models import AbstractUser
 import uuid
 from django.contrib.auth.backends import ModelBackend
+from django.forms import ValidationError
 from django.utils import timezone
 
 # Create your models here.
@@ -12,6 +13,7 @@ class User(models.Model):
     password = models.CharField(max_length=128,null=False,default="")
     email = models.EmailField(max_length=256,null=False,default="")
     phone = models.CharField(max_length=16,null=False,default="")
+    avatar = models.CharField(max_length=256,default='')
     def save(self,*args,**kwargs):
         self.password = make_password(self.password)
         super(User,self).save(*args,**kwargs)    
@@ -39,19 +41,55 @@ class SportRecord(models.Model):
         db_table = "SportRecord"
 
 
+def validate_max_person_greater_than_2(value):
+    if value < 2:
+        raise ValidationError('max person should greater than 1')
+
+def validate_cur_person_lte_max_person(value):
+    if value > models.F('maxPerson'):
+        raise ValidationError('cur person shouldn\'t greater than max person')
+
+
+   
 class Team(models.Model):
+    STATE = [('R','RENEW'),('O','ON'),('E','END')]
     teamId = models.AutoField(primary_key=True,null=False,editable=False)
-    
+    teamName = models.CharField(unique=True,max_length=128,null=False,default='kossur')
+    maxPerson = models.IntegerField(null=False,default=8,validators=[validate_max_person_greater_than_2],name='maxPerson')
+    sportType = models.ForeignKey(Sport,default='其他运动',on_delete=models.CASCADE,to_field='sportName',name='sportType')
+    createPerson = models.ForeignKey(User,null=True,on_delete=models.CASCADE,to_field='userid')
+    createTime = models.DateTimeField(null=False,default=timezone.now)
+    startTime = models.DateTimeField(default=timezone.now)
+    endTime = models.DateTimeField(null=False,default=timezone.now)
+    curPersonCnt = models.IntegerField(null=False,default=1,validators=[validate_cur_person_lte_max_person])
+    teamState = models.CharField(null=True,max_length=1,choices=STATE)
     class Meta:
         db_table = "Team"
+
+class TeamMember(models.Model):
+    teamId = models.ForeignKey(Team,on_delete=models.CASCADE)
+    userId = models.ForeignKey(User,on_delete=models.CASCADE)
+    class Meta:
+        db_table = 'TeamMember'
 
 
 
 class Article(models.Model):
     articleId = models.AutoField(primary_key=True,null=False,editable=False)
     userId = models.ForeignKey(User,null=False,on_delete=models.CASCADE)
+    title = models.CharField(max_length=128,null=False,default='有趣的文章~')
     content = models.TextField(null=False)
     create_at = models.DateTimeField(default=timezone.now)
     update_at = models.DateTimeField(default=timezone.now)
     class Meta:
         db_table = "Article"
+        
+
+class FeedBack(models.Model):
+    id = models.AutoField(primary_key=True,editable=False)
+    createUser = models.ForeignKey(User,on_delete=models.CASCADE)
+    content = models.TextField()
+    createTime = models.DateTimeField(default=timezone.now)
+    
+    class Meta:
+        db_table = "FeedBack"

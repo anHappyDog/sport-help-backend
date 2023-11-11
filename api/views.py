@@ -1,11 +1,13 @@
+from datetime import timezone
 from django.http import JsonResponse
 from django.shortcuts import render
 from django.contrib.auth.hashers import check_password
-from django.views.decorators.http import require_http_methods
+from django.views.decorators.http import require_http_methods,require_safe
 from django.views.decorators.csrf import csrf_exempt
+from django.core import serializers
 from django.contrib.sessions.models import Session
 from django.core.mail import send_mail
-from .models import User,Sport,Article
+from .models import FeedBack, Team, TeamMember, User,Sport,Article
 from uuid import uuid4
 import json
 # Create your views here.
@@ -21,7 +23,7 @@ def SignUp(request):
         email = data.get('email')
         phone = data.get('phone')
         user = User.objects.filter(username=username)
-        print(len(user))
+        print('[' + password + ']')
         if len(user) != 0:
             return JsonResponse({"status":-1}) 
         user = User.objects.create(username=username,password=password,email=email,phone=phone)
@@ -38,7 +40,7 @@ def SignIn(request):
     username = data.get('username')
     password = data.get('password')
     try:
-        user = User.objects.filter(username=username)[0]
+        user = User.objects.get(username=username)
     except:
         return JsonResponse({"status":-1})
     try:
@@ -111,12 +113,13 @@ def ForgetPassword(request):
         return JsonResponse({'status':0})
     except Exception as e:
         return JsonResponse({'status':-2,'msg':str(e)})
-    
+ 
 @csrf_exempt
 @require_http_methods('POST')
 def GetAvatar(request):
     
     return JsonResponse({'status':0})
+
 
 @csrf_exempt
 @require_http_methods('POST')
@@ -129,10 +132,12 @@ def UpdateAvatar(request):
 def ChangeUserInfo(request):
     pass
 
+
 @csrf_exempt
 @require_http_methods('POST')
 def DeliverErrors(request):
     pass
+
 
 @csrf_exempt
 @require_http_methods('GET')
@@ -155,10 +160,12 @@ def GetArticles(request):
 def DeliverArticle(request):
     pass 
 
+
 @csrf_exempt
 @require_http_methods('POST')
 def SearchFoodCalory(request):
     pass
+
 
 
 @csrf_exempt
@@ -166,30 +173,48 @@ def SearchFoodCalory(request):
 def GetExercisePlan(request):
     pass
 
+
 @csrf_exempt
 @require_http_methods('POST')
 def GetCityWalk(request):
     pass
 
+
 @csrf_exempt
 @require_http_methods('POST')
 def CreateTeam(request):
-    pass
+    if 'username' not in request.session or 'session' not in request.session:
+        return JsonResponse({'status':-1,'msg':"未登录"})
+    try:
+        user= User.objects.get(username=request.session['username'])
+        data = json.loads(request.body)
+        sport = Sport.objects.get(sportName=data['sportType'])
+        team = Team.objects.create(teamName=data['teamName'],maxPerson=data['maxPerson'],sportType=sport,createPerson=user,curPersonCnt=1,teamState='R')
+        team.save()
+        teamMember = TeamMember.objects.create(teamId=team,userId=user)
+        teamMember.save()
+        return JsonResponse({'status':0})
+    except Exception as e:
+        return JsonResponse({'status':-2,'msg':str(e)})
+    
 
 @csrf_exempt
 @require_http_methods('POST')
 def EndTeam(request):
     pass
 
+
 @csrf_exempt
 @require_http_methods('POST')
 def JoinTeam(request):
     pass
 
+
 @csrf_exempt
 @require_http_methods('POST')
 def LeaveTeam(request):
     pass
+
 
 @csrf_exempt
 @require_http_methods('GET')
@@ -197,5 +222,120 @@ def GetSportTaste(request):
     pass
 
 
+@csrf_exempt
+@require_http_methods('GET')
+def GetSportList(request):
+    
+    if 'username' not in request.session or 'session' not in request.session:
+        return JsonResponse({'status':-1,'msg':"未登录",'data':[]})
+    try:
+        data =[ t.sportName for t in Sport.objects.all()]
+        return JsonResponse({'status':0,'data':data})
+    except Exception as e:
+        return JsonResponse({'status':-2,'msg':str(e),'data':[]})
 
+
+@csrf_exempt
+@require_http_methods('POST')
+def SubmitFeedBack(request):
+    if 'username' not in request.session or 'session' not in request.session:
+        return JsonResponse({'status':-1,'msg':"未登录"})
+    try:
+        userid = User.objects.get(username=request.session['username'])
+        data = json.loads(request.body)
+        content = data["content"] 
+        feedBack = FeedBack.objects.create(createUser=userid,content=content)
+        feedBack.save()
+        return JsonResponse({'status':0,'msg':'反馈成功!'})
+    except  Exception as e:
+        return JsonResponse({'status':-2,'msg':str(e)})
+
+
+@csrf_exempt
+@require_http_methods('GET')
+def GetMyTeam(request):
+    if 'username' not in request.session or 'session' not in request.session:
+        return JsonResponse({'status':-1,'msg':"未登录"})   
+    
+    try:
+        user = User.objects.get(username=request.session['username'])
+        return JsonResponse({'data':list(Team.objects.filter(createPerson=user).values()),'status':0})
+    except Exception as e:
+        return JsonResponse({'status':-2,'msg':str(e)})
+
+@csrf_exempt
+@require_http_methods('GET')
+def GetTeams(request):
+    if 'username' not in request.session or 'session' not in request.session:
+        return JsonResponse({'status':-1,'msg':"未登录"})   
+    try:
+        return JsonResponse({'status':0,'data':list(Team.objects.all().values())})
+    except Exception as e:
+        return JsonResponse({'status':-2,'data':[],'msg':str(e)})
+    
+@csrf_exempt
+@require_http_methods('POST')
+def GetTeamDetails(request):
+    if 'username' not in request.session or 'session' not in request.session:
+        return JsonResponse({'status':-1,'msg':"未登录"})   
+    try:
+        data = json.loads(request.body)
+        teamId = data['teamId']
+        team = Team.objects.get(teamId=teamId)
+        user = User.objects.get(username=request.session['username'])
+        createId = team.createPerson.userid
+        isMember = False
+        members = [{'userId':t.userId.userid,'username':t.userId.username,'avatarAddress': t.userId.avatar} for t in TeamMember.objects.filter(teamId=team) ]
+        for t in members:
+            if user.userid in t.values():
+                isMember = True
+                break
+        responseData = {'teamId':teamId,'teamName':team.teamName,'createPersonName':request.session['username'],'curPersonCnt':team.curPersonCnt,
+                        'maxPersonCnt':team.maxPerson,'createTime':team.createTime,'startTime':team.startTime,'endTime':team.endTime,
+                        'teamState':team.teamState,'members': members}
+        return JsonResponse({'status':0,'data': responseData,'self':createId ==user.userid,'isMember':isMember})
+    except Exception as e:
+        return JsonResponse({'status':-2,'data':[],'msg':str(e)})
+
+@csrf_exempt
+@require_http_methods('POST')
+def StartTeam(request):
+    if 'username' not in request.session or 'session' not in request.session:
+        return JsonResponse({'status':-1,'msg':"未登录"})   
+    try:
+        data = json.loads(request.body)
+        teamId = data['teamId']
+        userId = User.objects.get(username=request.session['username'])
+        createId = data['createPerson']
+        if userId != createId:
+            return JsonResponse({'status':-3,'msg':'操作者不是创建用户'})
+        team = Team.objects.get(teamId=teamId)
+        if team.teamState != 'R':
+            return JsonResponse({'status':-4,'msg':'该队伍并非正在招新中,无法开始运动'})
+        team.teamState = 'O'
+        team.startTime = timezone.now()
+        team.save()
+        return JsonResponse({'status':0})
+    except Exception as e:
+        return JsonResponse({'status':-2,'data':[],'msg':str(e)})
+     
+@csrf_exempt
+@require_http_methods('POST')
+def EndTeam(request):
+    if 'username' not in request.session or 'session' not in request.session:
+        return JsonResponse({'status':-1,'msg':"未登录"})   
+    try:
+        data = json.loads(request.body)
+        teamId = data['teamId']
+        userId = User.objects.get(username=request.session['username'])
+        createId = data['createPerson']
+        if userId != createId:
+            return JsonResponse({'status':-3,'data':[],'msg':'操作者不是创建用户'})
+        team = Team.objects.get(teamId=teamId)
+        team.state = 'E'
+        team.endTime = timezone.now()
+        team.save()
+        return JsonResponse({'status':0})
+    except Exception as e:
+        return JsonResponse({'status':-2,'data':[],'msg':str(e)})
 
