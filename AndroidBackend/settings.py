@@ -24,7 +24,7 @@ SECRET_KEY = 'django-insecure-^5xg0+2t^ic*&gk5)fa7x_o6nk-oi1pdfml0=23vcd9(0_q1i*
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['10.0.2.2','127.0.0.1','android.api.lonelywatch.com']
+ALLOWED_HOSTS = ['10.0.2.2','127.0.0.1','android.api.lonelywatch.com','https://android.api.lonelywatch.com']
 
 
 # Application definition
@@ -135,3 +135,5 @@ EMAIL_HOST_USER = 'your-email@gmail.com'
 EMAIL_HOST_PASSWORD = 'your-email-password'
 STATIC_URL = 'static/'
 STATIC_ROOT = 'static/'
+
+CSRF_TRUSTED_ORIGINS = ['https://android.api.lonelywatch.com']
